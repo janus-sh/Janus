@@ -1,0 +1,29 @@
+name: Free model or service
+description: A model stopped being free, a new free one appeared, or a free tier changed
+labels: [free-list]
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Service and model
+      description: For example `openrouter` and the model id
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What changed
+      options:
+        - It is no longer free
+        - It is new and free
+        - The limits of the free tier changed
+        - It is in the list but does not answer
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Where it says so
+      description: A link to the service's own page, and the date you looked
+    validations:
+      required: true
