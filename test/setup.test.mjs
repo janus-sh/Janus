@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { JANUS_THEME, ensureSettings } from '../lib/setup.mjs';
+import { PROVIDER_IDS, RETIRED_ENV } from '../lib/providers.mjs';
+import { JANUS_THEME, ensureSettings, keyedProviders } from '../lib/setup.mjs';
 
 const settingsAfter = (before) => {
   const dir = mkdtempSync(join(tmpdir(), 'janus-settings-'));
@@ -51,4 +52,12 @@ test('settings from before the rename: same model, same themes, same choices', (
   assert.equal(settingsAfter({ theme: 'anus', anusLook: 1 }).read().theme, 'janus');
   // a light theme the person picked under the old name is not reset
   assert.equal(settingsAfter({ theme: 'light', anusLook: 1 }).read().theme, 'light');
+});
+
+test('a saved Mistral key is left alone and not offered: its API is no longer free', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'janus-keys-'));
+  writeFileSync(join(dir, 'auth.json'), JSON.stringify({ mistral: { type: 'api_key', key: 'test' } }));
+  assert.deepEqual(keyedProviders(dir, {}), []);
+  assert.ok(!PROVIDER_IDS.includes('mistral'));
+  assert.ok(RETIRED_ENV.includes('MISTRAL_API_KEY'));
 });
