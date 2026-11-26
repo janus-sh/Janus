@@ -7,6 +7,10 @@
 - `/free` says why a model is resting and when it is back: `rate limit, back in ~40 s`, `daily cap, back at 03:00` (your local time), `broke off mid-answer`, `key refused`. Models that stopped being free on OpenRouter get their own line, `not free any more`.
 - `janus doctor` shows what Janus would use right now: version and system, the settings folder, which services have a key (names only) and whether they answer, the model list in use, the OpenRouter catalogue, and the next three models. It never prints a key and never calls a model. Exit code 1 when no model can take a request.
 
+### Changed
+
+- The model list now comes from this repository (`lib/free-models.json` on the main branch) instead of a separate site. Every change to the list is a commit you can read. `JANUS_MODELS_URL` still points Janus at another copy.
+
 ### Fixed
 
 - On Windows the footer shows the project folder as `~\...` like on other systems; it read the home folder from `HOME`, which Windows does not set. Tests now run on Linux, macOS and Windows with Node 22 and 24.
