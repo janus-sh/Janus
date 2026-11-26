@@ -25,6 +25,7 @@ import {
   workingLine,
 } from '../lib/look.mjs';
 import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
+import { catalogueModel, getCatalogue, healList } from '../lib/catalogue.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
 
@@ -35,6 +36,7 @@ const LIST_URL = process.env.JANUS_MODELS_URL ?? process.env.ANUS_MODELS_URL ?? 
 const LIST_CACHE = join(AGENT_DIR, 'free-models.json');
 const LIST_MAX_AGE_MS = 12 * 3_600_000;
 const REST_FILE = join(AGENT_DIR, 'janus-rest.json');
+const CATALOGUE_CACHE = join(AGENT_DIR, 'openrouter-models.json');
 const MAX_TRIES = 6;
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 
@@ -127,7 +129,17 @@ class BoxEditor extends CustomEditor {
 }
 
 export default function janus(pi) {
-  let list = loadList();
+  let base = loadList(); // the ranked list as downloaded or bundled
+  let catalogue = null; // OpenRouter's own catalogue, when there is one
+  let healed = { dropped: [], added: [] };
+  let list = base; // the ranked list checked against the catalogue
+  let catalogueReady = Promise.resolve();
+  const heal = () => {
+    if (!catalogue || !base) return void (list = base);
+    const h = healList(base.models, catalogue);
+    healed = h;
+    list = { ...base, models: h.models };
+  };
   let registry = null;
   let ui = null;
   let routed = 'free models'; // the real model that answered last, for the footer
@@ -138,9 +150,19 @@ export default function janus(pi) {
     if (ms > 10 * 60_000) saveRest(rest);
   };
 
+  // A free OpenRouter model the engine's catalogue does not know yet is built
+  // from OpenRouter's catalogue, in the shape of a free model the engine knows.
+  let template;
+  const openrouterTemplate = () => {
+    if (template === undefined) {
+      const known = (base?.models ?? []).filter((e) => e.provider === 'openrouter').map((e) => registry.find(e.provider, e.id));
+      template = known.find((m) => m?.api === 'openai-completions') ?? null;
+    }
+    return template;
+  };
   const usable = (needImages) => (entry) => {
     if (!registry || !PROVIDER_IDS.includes(entry.provider)) return null;
-    const model = registry.find(entry.provider, entry.id);
+    const model = registry.find(entry.provider, entry.id) ?? catalogueModel(entry, openrouterTemplate());
     if (!model || !registry.hasConfiguredAuth(model)) return null;
     if (needImages && !model.input?.includes('image')) return null;
     return model;
@@ -160,7 +182,17 @@ export default function janus(pi) {
     registry = ctx.modelRegistry;
     ui = ctx.hasUI ? ctx.ui : null;
     refreshList().then((fresh) => {
-      if (fresh) list = fresh;
+      if (!fresh) return;
+      base = fresh;
+      heal();
+    });
+    // OpenRouter's own catalogue: in the background, so start-up never waits;
+    // the first request waits for it at most the download timeout.
+    const hasKey = !!registry.getProviderAuthStatus('openrouter')?.configured;
+    catalogueReady = getCatalogue({ hasKey, cachePath: CATALOGUE_CACHE, maxAgeMs: LIST_MAX_AGE_MS }).then(({ body, source }) => {
+      catalogue = body;
+      heal();
+      debug('catalogue', source, `dropped: ${healed.dropped.join(' ') || 'none'}`, `added: ${healed.added.join(' ') || 'none'}`);
     });
     if (ctx.mode === 'tui') {
       useLightPalette(ctx.ui.theme?.name === 'janus-light' || ctx.ui.theme?.name === 'light');
@@ -257,9 +289,12 @@ export default function janus(pi) {
               ? 'awake, missed the last ping'
               : 'awake';
         const iq = entry.iq != null ? ` iq ${entry.iq}` : '';
-        return `${shortName(entry)}${iq} — ${state}`;
+        return `${shortName(entry)}${iq}${entry.new ? ' new' : ''} — ${state}`;
       });
-      ctx.ui.notify([`free models (list of ${list?.updated ?? 'unknown date'}):`, ...lines].join('\n'), 'info');
+      const gone = healed.dropped.length
+        ? [`no longer free on OpenRouter, skipped: ${healed.dropped.map((id) => shortName({ provider: 'openrouter', id })).join(', ')}`]
+        : [];
+      ctx.ui.notify([`free models (list of ${list?.updated ?? 'unknown date'}):`, ...lines, ...gone].join('\n'), 'info');
     },
   });
 
@@ -306,21 +341,23 @@ export default function janus(pi) {
 
   function route(context, options = {}) {
     const out = createAssistantMessageEventStream();
-    const now = Date.now();
-    const tries = plan({
-      models: list?.models ?? [],
-      usable: usable(hasImages(context.messages)),
-      rest,
-      now,
-      tokens: estimateTokens(context.messages),
-    }).slice(0, MAX_TRIES);
-    debug('plan', tries.map(({ entry }) => keyOf(entry)).join(' '));
+    let tries = [];
 
     // The engine's own key, headers and output cap belong to `janus/free`;
     // each real model gets its own.
     const { apiKey: _k, headers: _h, env: _e, maxTokens: _m, deferred: _d, ...passOn } = options;
 
     (async () => {
+      await catalogueReady;
+      tries = plan({
+        models: list?.models ?? [],
+        usable: usable(hasImages(context.messages)),
+        rest,
+        now: Date.now(),
+        tokens: estimateTokens(context.messages),
+      }).slice(0, MAX_TRIES);
+      debug('plan', tries.map(({ entry }) => keyOf(entry)).join(' '));
+
       let lastError = null;
       const refusedKeys = new Set();
       for (const { entry, model } of tries) {

@@ -28,6 +28,7 @@ Start with OpenRouter. More keys mean more free requests a day and more models t
 ## How "free" works
 
 - Janus keeps a ranked list of free models: which ones are smartest, and which answered a ping in the last hours. The list refreshes twice a day.
+- With an OpenRouter key, Janus also checks OpenRouter's own catalogue at start: a model that stopped being free is skipped right away, and a new free model that can use tools joins the end of the list the same day (`/free` marks it `new`).
 - Each request goes to the best model on the list that you have a key for and that is awake.
 - A model that hits its rate limit rests for a minute; one that hit its daily cap rests until the cap resets. The request moves on without waiting.
 - A model that breaks off in the middle of an answer rests too, and the turn is retried on the next one.
