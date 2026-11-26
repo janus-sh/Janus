@@ -113,3 +113,15 @@ test('offline: an old cache is used; no cache means today\'s behaviour', async (
   assert.equal(none.body, null);
   assert.equal(healList(PICKS, none.body).models, PICKS);
 });
+
+test('guard: a catalogue that would drop more than three quarters of the picks at once is ignored', () => {
+  const picks = ['a/kept:free', 'w:free', 'x:free', 'y:free', 'z:free'].map((id) => ({ provider: 'openrouter', id }));
+  const h = healList(picks, BODY); // w, x, y, z are not in BODY: 4 of 5
+  assert.equal(h.models, picks);
+  assert.deepEqual([h.dropped, h.added], [[], []]);
+  assert.deepEqual(h.ignored, { wouldDrop: 4, of: 5 });
+  // exactly three quarters is still trusted: an old list loses most of its models honestly
+  const three = healList(picks.slice(0, 4), BODY);
+  assert.deepEqual(three.dropped, ['w:free', 'x:free', 'y:free']);
+  assert.equal(three.ignored, undefined);
+});

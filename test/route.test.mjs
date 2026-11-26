@@ -98,3 +98,21 @@ test('broke off mid-answer: limit words do not block the retry', () => {
   const text = midStreamError('quota exceeded for this model, check billing', 'x');
   assert.ok(engineRetries(text), text);
 });
+
+test('order: ranked picks, then models new from the catalogue, then models known to be down', () => {
+  const ok = { provider: 'openrouter', id: 'ok:free', ping: 'ok' };
+  const bare = { provider: 'groq', id: 'bare' }; // a direct service: no ping, still ranked
+  const flaky = { provider: 'openrouter', id: 'flaky:free', ping: 'flaky' };
+  const down = { provider: 'openrouter', id: 'down:free', ping: 'down' };
+  const fresh1 = { provider: 'openrouter', id: 'new1:free', new: true };
+  const fresh2 = { provider: 'openrouter', id: 'new2:free', new: true };
+  const got = orderModels([down, fresh1, flaky, ok, fresh2, bare]).map((m) => m.id);
+  assert.deepEqual(got, ['ok:free', 'bare', 'flaky:free', 'new1:free', 'new2:free', 'down:free']);
+});
+
+test('plan: a new catalogue model never jumps ahead of an awake ranked pick', () => {
+  const flaky = { provider: 'openrouter', id: 'flaky:free', ping: 'flaky' };
+  const fresh = { provider: 'openrouter', id: 'new:free', new: true };
+  const got = plan({ models: [flaky, fresh], usable: all, rest: new Map(), now: NOW }).map((t) => t.entry.id);
+  assert.deepEqual(got, ['flaky:free', 'new:free']);
+});

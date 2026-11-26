@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- New free models found in OpenRouter's catalogue no longer jump ahead of ranked ones. Ranked models that answered the last ping go first, then the new ones, and models known to be down go last. If the catalogue would drop more than three quarters of the OpenRouter models at once, Janus treats it as a broken catalogue, keeps the list and says so in `/free`.
 - The model list download no longer loses to a slow connection. It used to give up after 3 seconds, so on a slow line Janus stayed on the list shipped with the package. Now it gets 10 seconds in the background; start-up does not wait for it, and the fresh list is used from the next request.
 
 ## [0.3.1] - 2026-11-26
