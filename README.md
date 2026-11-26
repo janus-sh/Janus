@@ -45,6 +45,7 @@ Start with OpenRouter. More keys mean more free requests a day and more models t
 | `janus -c` | continue the last session |
 | `janus setup` | add or change free keys |
 | `janus update` | update Janus |
+| `janus doctor` | what Janus would use right now: keys found (names only), services reachable, the model list, the next three models. Paste it into a bug report |
 | `janus --help` | everything else |
 
 Inside: `/help` for the basics, `/free` shows the models, `/model` picks one by hand (`janus/free` is the automatic one), `/compact` shrinks a long conversation, `!ls` runs a shell command.

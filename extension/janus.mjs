@@ -26,14 +26,13 @@ import {
 } from '../lib/look.mjs';
 import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
 import { catalogueModel, getCatalogue, healList } from '../lib/catalogue.mjs';
-import { downloadList, isNewer, LIST_MAX_AGE_MS, loadList } from '../lib/list.mjs';
+import { downloadList, isNewer, LIST_MAX_AGE_MS, listUrl, loadList } from '../lib/list.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
 
 const ROOT = process.env.JANUS_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
 const AGENT_DIR = process.env.JANUS_CODING_AGENT_DIR ?? join(homedir(), '.janus', 'agent');
-// The list host stays where it was before the rename.
-const LIST_URL = process.env.JANUS_MODELS_URL ?? process.env.ANUS_MODELS_URL ?? 'https://anus.dev/free-models.json';
+const LIST_URL = listUrl();
 const LIST_CACHE = join(AGENT_DIR, 'free-models.json');
 const LIST_PATHS = { bundledPath: join(ROOT, 'lib', 'free-models.json'), cachePath: LIST_CACHE };
 const REST_FILE = join(AGENT_DIR, 'janus-rest.json');

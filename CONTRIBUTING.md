@@ -30,6 +30,7 @@ JANUS_HOME=$(mktemp -d) node bin/janus.mjs setup
 | `lib/list.mjs` | loads that list or the cached copy, and downloads a fresh one in the background |
 | `lib/route.mjs` | which model gets the next request, and when a model rests |
 | `lib/catalogue.mjs` | OpenRouter's own catalogue: drops models that stopped being free, adds new free ones |
+| `lib/doctor.mjs` | `janus doctor`: what Janus would use right now, without secrets |
 | `lib/store.mjs` | writes cache files so that a reader never sees half of one |
 | `extension/janus.mjs` | the router inside the engine: `/free`, retries, the footer |
 | `lib/look.mjs`, `lib/phrases.json` | logo, colors, loading phrases |
@@ -57,4 +58,4 @@ JANUS_HOME=$(mktemp -d) node bin/janus.mjs setup
 
 ## Reporting bugs
 
-Open an [issue](https://github.com/janus-sh/janus/issues) with the error text, what you ran, your OS and the output of `janus --version`. For security problems see [SECURITY.md](SECURITY.md).
+Open an [issue](https://github.com/janus-sh/janus/issues) with the error text, what you ran and the output of `janus doctor` (version, system, which services have a key and answer, the model list in use; it never prints a key). For security problems see [SECURITY.md](SECURITY.md).

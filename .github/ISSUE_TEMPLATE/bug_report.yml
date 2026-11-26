@@ -17,18 +17,14 @@ body:
       render: sh
     validations:
       required: true
-  - type: input
-    id: version
+  - type: textarea
+    id: doctor
     attributes:
-      label: Version
-      description: Output of `janus --version`
+      label: Output of `janus doctor`
+      description: Version, system, which services have a key and answer, the model list in use. It never prints a key.
+      render: text
     validations:
       required: true
-  - type: input
-    id: system
-    attributes:
-      label: System
-      description: OS and Node.js version (`node -v`)
   - type: textarea
     id: log
     attributes:
