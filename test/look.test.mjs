@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { homedir } from 'node:os';
 import { test } from 'node:test';
 import {
   boxLines,
@@ -97,7 +98,7 @@ test('your message: a box with "> " when it fits, a plain "> " otherwise', () =>
 
 test('footer: drops "(see /help)" and shortens the model before it drops the model', () => {
   const strip = (x) => x.replace(/\x1b\[[0-9;]*m/g, '');
-  const home = process.env.HOME;
+  const home = homedir();
   const f = (w) => strip(footerLine({ cwd: `${home}/janus-sh/janus`, model: 'openrouter/cohere/north-mini-code:free', contextLeft: 97 }, w));
   assert.match(f(120), /\(see \/help\) +openrouter\/cohere\/north-mini-code:free \(97% context left\)$/);
   assert.match(f(90), /no sandbox +openrouter\/cohere\/north-mini-code:free \(97% context left\)$/);

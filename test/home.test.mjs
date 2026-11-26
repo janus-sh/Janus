@@ -13,7 +13,8 @@ const oldHome = () => {
   writeFileSync(join(from, 'agent', 'settings.json'), '{"defaultProvider":"anus"}\n');
   writeFileSync(join(from, 'agent', 'sessions', 'one.jsonl'), '{}\n');
   mkdirSync(join(from, 'engine', 'x'), { recursive: true });
-  symlinkSync(join(base, 'nowhere'), join(from, 'engine', 'x', 'dangling'));
+  // a dangling link in the engine cache; Windows needs extra rights for links, so it is left out there
+  if (process.platform !== 'win32') symlinkSync(join(base, 'nowhere'), join(from, 'engine', 'x', 'dangling'));
   return { base, from, to: join(base, '.janus') };
 };
 
@@ -22,7 +23,8 @@ test('old home is copied once, modes kept, the old folder stays', () => {
   assert.equal(migrateHome({ from, to }), true);
   assert.equal(readFileSync(join(to, 'agent', 'settings.json'), 'utf8'), '{"defaultProvider":"anus"}\n');
   assert.ok(existsSync(join(to, 'agent', 'sessions', 'one.jsonl')));
-  assert.equal(statSync(join(to, 'agent', 'auth.json')).mode & 0o777, 0o600);
+  // Windows has no owner-only file mode; there the copy keeps what the system gives
+  if (process.platform !== 'win32') assert.equal(statSync(join(to, 'agent', 'auth.json')).mode & 0o777, 0o600);
   assert.ok(existsSync(join(from, 'agent', 'auth.json')), 'old folder untouched');
   assert.ok(!existsSync(join(to, 'engine')), 'engine cache is rebuilt, not copied');
   // second start: the new folder exists, nothing happens
