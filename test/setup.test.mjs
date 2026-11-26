@@ -18,6 +18,7 @@ test('a fresh install gets the Janus themes (light and dark by the terminal)', (
   assert.equal(s.theme, JANUS_THEME);
   assert.equal(s.defaultProvider, 'janus');
   assert.equal(s.defaultModel, 'free');
+  assert.equal(s.tuiMode, 'regular');
 });
 
 test('the "light" the engine wrote on its first start is replaced once', () => {
