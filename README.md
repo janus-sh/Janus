@@ -1,5 +1,7 @@
 # Janus
 
+![Janus, a free coding agent in your terminal](docs/assets/janus.png)
+
 [![npm](https://img.shields.io/npm/v/%40janus-sh/janus?logo=npm&label=npm&color=ff6a00&labelColor=222222)](https://www.npmjs.com/package/@janus-sh/janus)
 [![license](https://img.shields.io/badge/license-MIT-ffb300?labelColor=222222)](LICENSE)
 
