@@ -10,7 +10,7 @@
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,7 @@ import {
 } from '../lib/look.mjs';
 import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
 import { catalogueModel, getCatalogue, healList } from '../lib/catalogue.mjs';
+import { saveText } from '../lib/store.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
 
@@ -48,10 +49,18 @@ function debug(...parts) {
   } catch {}
 }
 
+function parseList(text) {
+  try {
+    const list = JSON.parse(text);
+    return Array.isArray(list?.models) && list.models.every((m) => m?.provider && m?.id) ? list : null;
+  } catch {
+    return null;
+  }
+}
+
 function readList(path) {
   try {
-    const list = JSON.parse(readFileSync(path, 'utf8'));
-    return Array.isArray(list?.models) && list.models.every((m) => m?.provider && m?.id) ? list : null;
+    return parseList(readFileSync(path, 'utf8'));
   } catch {
     return null;
   }
@@ -72,14 +81,8 @@ async function refreshList() {
     const res = await fetch(LIST_URL, { signal: AbortSignal.timeout(3000) });
     if (!res.ok) return null;
     const text = await res.text();
-    mkdirSync(AGENT_DIR, { recursive: true });
-    const tmp = `${LIST_CACHE}.tmp`;
-    writeFileSync(tmp, text);
-    if (!readList(tmp)) {
-      rmSync(tmp, { force: true });
-      return null;
-    }
-    renameSync(tmp, LIST_CACHE);
+    if (!parseList(text)) return null; // checked before it touches the disk
+    saveText(LIST_CACHE, text); // no free-models.json.tmp left behind, even when the write fails
     return loadList();
   } catch {
     return null;
