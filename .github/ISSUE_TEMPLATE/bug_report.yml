@@ -1,0 +1,37 @@
+name: Bug report
+description: Something broke or behaved wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The error text, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: ran
+    attributes:
+      label: What you ran
+      description: The command or the task you gave Janus.
+      render: sh
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `janus --version`
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: OS and Node.js version (`node -v`)
+  - type: textarea
+    id: log
+    attributes:
+      label: Routing log
+      description: For "wrong model" or "no free model" problems, run with `JANUS_DEBUG=1` and paste the end of `~/.janus/agent/janus-debug.log`. It has model names and errors, no keys.
+      render: text
