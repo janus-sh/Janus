@@ -72,6 +72,9 @@ function saveRest(rest) {
 const hasImages = (messages) =>
   (messages ?? []).some((m) => Array.isArray(m?.content) && m.content.some((c) => c?.type === 'image'));
 
+const ignoredLine = ({ wouldDrop, of }) =>
+  `OpenRouter catalogue would drop ${wouldDrop} of ${of} picks at once: ignored, list kept`;
+
 const shortName = (entry) => `${entry.id.replace(/:free$/, '').split('/').pop()} · ${entry.provider}`;
 
 /** The input in a rounded box with "> ", like this project's 2025 CLI (0.1.0). */
@@ -95,7 +98,7 @@ export default function janus(pi) {
   let base = loadList(LIST_PATHS).list; // the ranked list as cached or bundled, at once
   const ending = new AbortController(); // a download still running when the session ends is dropped
   let catalogue = null; // OpenRouter's own catalogue, when there is one
-  let healed = { dropped: [], added: [] };
+  let healed = { dropped: [], added: [], ignored: null };
   let list = base; // the ranked list checked against the catalogue
   let catalogueReady = Promise.resolve();
   const heal = () => {
@@ -159,6 +162,7 @@ export default function janus(pi) {
       catalogue = body;
       heal();
       debug('catalogue', source, `dropped: ${healed.dropped.join(' ') || 'none'}`, `added: ${healed.added.join(' ') || 'none'}`);
+      if (healed.ignored) debug('catalogue ignored:', ignoredLine(healed.ignored));
     });
     if (ctx.mode === 'tui') {
       useLightPalette(ctx.ui.theme?.name === 'janus-light' || ctx.ui.theme?.name === 'light');
@@ -262,7 +266,9 @@ export default function janus(pi) {
       });
       const gone = healed.dropped.length
         ? [`no longer free on OpenRouter, skipped: ${healed.dropped.map((id) => shortName({ provider: 'openrouter', id })).join(', ')}`]
-        : [];
+        : healed.ignored
+          ? [ignoredLine(healed.ignored)]
+          : [];
       ctx.ui.notify([`free models (list of ${list?.updated ?? 'unknown date'}):`, ...lines, ...gone].join('\n'), 'info');
     },
   });
