@@ -26,6 +26,7 @@ import {
 } from '../lib/look.mjs';
 import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
 import { catalogueModel, getCatalogue, healList } from '../lib/catalogue.mjs';
+import { freeLine, modelState, shortName } from '../lib/free.mjs';
 import { downloadList, isNewer, LIST_MAX_AGE_MS, listUrl, loadList } from '../lib/list.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
@@ -48,21 +49,32 @@ function debug(...parts) {
   } catch {}
 }
 
-/** Long rests (daily caps, gated models) survive a restart; short ones do not matter. */
+/**
+ * Long rests (daily caps, gated models) survive a restart; short ones do not
+ * matter. The file keeps { until, why } per model or service; older files
+ * kept just the time.
+ */
 function loadRest() {
   const rest = new Map();
+  const why = new Map();
   try {
     const now = Date.now();
-    for (const [k, until] of Object.entries(JSON.parse(readFileSync(REST_FILE, 'utf8'))))
-      if (until > now) rest.set(k, until);
+    for (const [k, v] of Object.entries(JSON.parse(readFileSync(REST_FILE, 'utf8')))) {
+      const until = typeof v === 'number' ? v : Number(v?.until);
+      if (!(until > now)) continue;
+      rest.set(k, until);
+      if (typeof v?.why === 'string') why.set(k, v.why);
+    }
   } catch {}
-  return rest;
+  return { rest, why };
 }
 
-function saveRest(rest) {
+function saveRest(rest, why) {
   try {
     const soon = Date.now() + 10 * 60_000;
-    const long = Object.fromEntries([...rest].filter(([, until]) => until > soon));
+    const long = Object.fromEntries(
+      [...rest].filter(([, until]) => until > soon).map(([k, until]) => [k, { until, why: why.get(k) }]),
+    );
     mkdirSync(AGENT_DIR, { recursive: true });
     writeFileSync(REST_FILE, JSON.stringify(long) + '\n');
   } catch {}
@@ -74,7 +86,6 @@ const hasImages = (messages) =>
 const ignoredLine = ({ wouldDrop, of }) =>
   `OpenRouter catalogue would drop ${wouldDrop} of ${of} picks at once: ignored, list kept`;
 
-const shortName = (entry) => `${entry.id.replace(/:free$/, '').split('/').pop()} · ${entry.provider}`;
 
 /** The input in a rounded box with "> ", like this project's 2025 CLI (0.1.0). */
 class BoxEditor extends CustomEditor {
@@ -110,10 +121,11 @@ export default function janus(pi) {
   let ui = null;
   let routed = 'free models'; // the real model that answered last, for the footer
   let tui = null;
-  const rest = loadRest();
-  const resting = (key, ms) => {
+  const { rest, why: restWhy } = loadRest(); // until when, and why, a model or a whole service rests
+  const resting = (key, ms, why) => {
     rest.set(key, Date.now() + ms);
-    if (ms > 10 * 60_000) saveRest(rest);
+    restWhy.set(key, why);
+    if (ms > 10 * 60_000) saveRest(rest, restWhy);
   };
 
   // A free OpenRouter model the engine's catalogue does not know yet is built
@@ -252,22 +264,15 @@ export default function janus(pi) {
       const now = Date.now();
       const lines = (list?.models ?? []).map((entry) => {
         const model = usable(false)(entry);
-        const until = Math.max(rest.get(keyOf(entry)) ?? 0, rest.get(entry.provider) ?? 0);
-        const state = !model
-          ? 'no key'
-          : until > now
-            ? `resting ${Math.ceil((until - now) / 60_000)} min`
-            : entry.ping === 'down'
-              ? 'awake, missed the last ping'
-              : 'awake';
-        const iq = entry.iq != null ? ` iq ${entry.iq}` : '';
-        return `${shortName(entry)}${iq}${entry.new ? ' new' : ''} — ${state}`;
+        // the longer of the model's own rest and its whole service's rest
+        const own = rest.get(keyOf(entry)) ?? 0;
+        const all = rest.get(entry.provider) ?? 0;
+        const key = all > own ? entry.provider : keyOf(entry);
+        const state = modelState({ hasKey: !!model, until: Math.max(own, all), why: restWhy.get(key), ping: entry.ping }, now);
+        return freeLine(entry, state);
       });
-      const gone = healed.dropped.length
-        ? [`no longer free on OpenRouter, skipped: ${healed.dropped.map((id) => shortName({ provider: 'openrouter', id })).join(', ')}`]
-        : healed.ignored
-          ? [ignoredLine(healed.ignored)]
-          : [];
+      const gone = healed.dropped.map((id) => freeLine({ provider: 'openrouter', id }, modelState({ gone: true }, now)));
+      if (healed.ignored) gone.push(ignoredLine(healed.ignored));
       ctx.ui.notify([`free models (list of ${list?.updated ?? 'unknown date'}):`, ...lines, ...gone].join('\n'), 'info');
     },
   });
@@ -343,7 +348,8 @@ export default function janus(pi) {
         } catch (err) {
           lastError = err?.message ?? String(err);
           debug('throw', keyOf(entry), lastError);
-          resting(entry.provider, restFor(lastError, Date.now()).ms);
+          const r = restFor(lastError, Date.now());
+          resting(entry.provider, r.ms, r.why);
           continue;
         }
         let held = null;
@@ -368,9 +374,10 @@ export default function janus(pi) {
             // Broke off after it started: the engine retries the turn, and
             // this model rests so the retry lands on the next one.
             const cause = event.error?.errorMessage;
-            const { ms, scope } = restFor(cause, Date.now());
+            const { ms, scope, why } = restFor(cause, Date.now());
             if (ms > 0 && event.error) {
-              resting(scope === 'provider' ? entry.provider : keyOf(entry), ms);
+              const told = why === 'daily cap' || why === 'key refused' ? why : 'broke off mid-answer';
+              resting(scope === 'provider' ? entry.provider : keyOf(entry), ms, told);
               event.error.errorMessage = midStreamError(cause, shortName(entry));
             }
             debug('broke', keyOf(entry), String(cause).slice(0, 300));
@@ -387,10 +394,10 @@ export default function janus(pi) {
           return;
         }
         lastError = failed.error?.errorMessage ?? 'unknown error';
-        const { ms, scope } = restFor(lastError, Date.now());
-        debug('refused', keyOf(entry), `rest ${Math.round(ms / 1000)}s ${scope}:`, lastError.slice(0, 300));
+        const { ms, scope, why } = restFor(lastError, Date.now());
+        debug('refused', keyOf(entry), `rest ${Math.round(ms / 1000)}s ${scope} (${why}):`, lastError.slice(0, 300));
         if (scope === 'provider') refusedKeys.add(entry.provider);
-        if (ms > 0) resting(scope === 'provider' ? entry.provider : keyOf(entry), ms);
+        if (ms > 0) resting(scope === 'provider' ? entry.provider : keyOf(entry), ms, why);
       }
       out.push({
         type: 'error',

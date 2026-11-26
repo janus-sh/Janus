@@ -46,7 +46,7 @@ test('plan: a model too small for the conversation is skipped', () => {
 });
 
 test('rest: rate limit is a minute, daily cap and gated model until 00:00 UTC', () => {
-  assert.deepEqual(restFor('429: Provider returned error, rate-limited upstream', NOW), { ms: 60_000, scope: 'model' });
+  assert.deepEqual(restFor('429: Provider returned error, rate-limited upstream', NOW), { ms: 60_000, scope: 'model', why: 'rate limit' });
   const midnight = untilUtcMidnight(NOW);
   assert.equal(midnight, 14 * 3_600_000);
   assert.equal(restFor('Rate limit exceeded: free-models-per-day', NOW).ms, midnight);
@@ -55,7 +55,7 @@ test('rest: rate limit is a minute, daily cap and gated model until 00:00 UTC', 
 });
 
 test('rest: a bad key rests the whole provider', () => {
-  assert.deepEqual(restFor('401: Invalid API key', NOW), { ms: 6 * 3_600_000, scope: 'provider' });
+  assert.deepEqual(restFor('401: Invalid API key', NOW), { ms: 6 * 3_600_000, scope: 'provider', why: 'key refused' });
 });
 
 test('rest: context overflow does not rest the model, a hiccup rests it five minutes', () => {
