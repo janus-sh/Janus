@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { downloadList, LIST_TIMEOUT_MS, loadList } from '../lib/list.mjs';
+import { downloadList, LIST_TIMEOUT_MS, LIST_URL, listUrl, loadList } from '../lib/list.mjs';
 
 const LIST = (updated) => JSON.stringify({ updated, models: [{ provider: 'openrouter', id: 'a:free' }] });
 const folder = () => {
@@ -77,4 +77,10 @@ test('same date: the list shipped with the package wins over a download', () => 
   assert.equal(loadList(p).source, 'bundled');
   writeFileSync(p.cachePath, LIST('2026-11-27'));
   assert.equal(loadList(p).source, 'cached');
+});
+
+test('the list comes from the repository unless a variable points elsewhere', () => {
+  assert.equal(listUrl({}), LIST_URL);
+  assert.match(LIST_URL, /^https:\/\/raw\.githubusercontent\.com\/janus-sh\/janus\/main\/lib\/free-models\.json$/);
+  assert.equal(listUrl({ JANUS_MODELS_URL: 'https://example.test/list.json' }), 'https://example.test/list.json');
 });
