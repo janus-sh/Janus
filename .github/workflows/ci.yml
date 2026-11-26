@@ -15,4 +15,4 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
-      - run: node bin/anus.mjs --version
+      - run: node bin/janus.mjs --version

@@ -21,7 +21,7 @@ test('no line is ever wider than the terminal', () => {
   for (let width = 1; width <= 200; width++) {
     const lines = [
       ...headerLines(width),
-      workingLine('Getting hot and heavy... with the CPU...', 3725, width),
+      workingLine('Boldly going where no code has gone before...', 3725, width),
       footerLine({ cwd: '/Users/someone/code/a-very/long/project/path', model: 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free', contextLeft: 97 }, width),
     ];
     if (width >= 12) lines.push(...boxLines(['x'.repeat(width - 6)], width));
@@ -29,10 +29,10 @@ test('no line is ever wider than the terminal', () => {
   }
 });
 
-test('the start screen keeps the 0.1.0 text', () => {
+test('the start screen: the block logo and the 0.1.0 tips', () => {
   const text = headerLines(120).join('\n').replace(/\x1b\[[0-9;]*m/g, '');
   for (const line of LOGO) assert.ok(text.includes(line));
-  assert.match(text, /Welcome to ANUS - Autonomous Networked Utility System/);
+  assert.match(text, /Welcome to Janus/);
   assert.match(text, /Born from AI, built by AI/);
   assert.match(text, /3\. \/help for more information\./);
 });
@@ -40,7 +40,18 @@ test('the start screen keeps the 0.1.0 text', () => {
 test('narrow terminal: a one-word logo instead of the block logo', () => {
   const text = headerLines(30).join('\n').replace(/\x1b\[[0-9;]*m/g, '');
   assert.ok(!text.includes('███'));
-  assert.match(text, /ANUS/);
+  assert.match(text, /JANUS/);
+});
+
+test('block logo: JANUS, a J in front of the 0.1.0 letters, every row the same width', () => {
+  const widths = LOGO.map((l) => [...l].length);
+  assert.equal(LOGO.length, 6);
+  assert.ok(widths.every((w) => w === widths[0]), String(widths));
+  // the J is eight columns; the A, N, U and S after it are the 0.1.0 glyphs as they were
+  assert.equal(LOGO[0].slice(0, 8), '     ██╗');
+  assert.equal(LOGO[4].slice(0, 8), '╚█████╔╝');
+  assert.equal(LOGO[0].slice(8), ' █████╗ ███╗   ██╗██╗   ██╗███████╗');
+  assert.equal(LOGO[5].slice(8), '╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚══════╝');
 });
 
 test('gradient runs from the first color to the last', () => {
@@ -87,7 +98,7 @@ test('your message: a box with "> " when it fits, a plain "> " otherwise', () =>
 test('footer: drops "(see /help)" and shortens the model before it drops the model', () => {
   const strip = (x) => x.replace(/\x1b\[[0-9;]*m/g, '');
   const home = process.env.HOME;
-  const f = (w) => strip(footerLine({ cwd: `${home}/anus-dev/anus`, model: 'openrouter/cohere/north-mini-code:free', contextLeft: 97 }, w));
+  const f = (w) => strip(footerLine({ cwd: `${home}/janus-sh/janus`, model: 'openrouter/cohere/north-mini-code:free', contextLeft: 97 }, w));
   assert.match(f(120), /\(see \/help\) +openrouter\/cohere\/north-mini-code:free \(97% context left\)$/);
   assert.match(f(90), /no sandbox +openrouter\/cohere\/north-mini-code:free \(97% context left\)$/);
   assert.match(f(66), /no sandbox +north-mini-code \(97% context left\)$/);

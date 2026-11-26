@@ -1,12 +1,12 @@
-ANUS
-Copyright (c) 2025-2026 ANUS (https://anus.dev)
+Janus
+Copyright (c) 2025-2026 Janus contributors
 
 This program runs on pi (@earendil-works/pi-coding-agent), Copyright Earendil
 Works, MIT License, installed as a dependency: https://github.com/earendil-works/pi
 
-The block logo (lib/look.mjs) and the loading phrases (lib/phrases.json) come
-from ANUS CLI 0.1.0 (this repository, branch legacy-2025), which was licensed
-under the Apache License 2.0:
+The block logo font (lib/look.mjs) and the loading phrases (lib/phrases.json)
+come from this project's 2025 CLI (0.1.0, Apache-2.0), used under the Apache
+License 2.0:
   Copyright 2025 Google LLC
-  Modifications Copyright 2025 ANUS Contributors
+  Modifications Copyright 2025 Janus contributors
   https://www.apache.org/licenses/LICENSE-2.0
