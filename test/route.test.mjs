@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { isRetryableAssistantError } from '@earendil-works/pi-ai';
 import { PROVIDER_IDS } from '../lib/providers.mjs';
 import {
   estimateTokens,
@@ -78,25 +79,26 @@ test('bundled list: known providers only, no duplicates, no paid OpenRouter mode
   }
 });
 
-// The engine's own rule (pi 0.87.1, isRetryableAssistantError): retry when
-// the text has one of these words, never when it has a limit word. Copied
-// here on purpose: if an engine upgrade changes it, update both.
-const ENGINE_RETRY =
-  /overloaded|currently experiencing high demand|rate.?limit|too many requests|429|500|502|503|504|520|524|service.?unavailable|server.?error|internal.?error|provider.?returned.?error|network.?error|connection.?error|timeout/i;
-const ENGINE_NO_RETRY =
-  /GoUsageLimitError|FreeUsageLimitError|Monthly usage limit reached|available balance|insufficient_quota|out of budget|quota exceeded|billing/i;
-const engineRetries = (text) => !ENGINE_NO_RETRY.test(text) && ENGINE_RETRY.test(text);
+// The engine's own rule, imported from the engine itself: when it changes
+// in an upgrade, these tests show whether the retry still happens.
+const engineRetries = (text) => isRetryableAssistantError({ stopReason: 'error', errorMessage: text });
 
 test('broke off mid-answer: the engine retries the turn', () => {
-  assert.equal(engineRetries('Provider finish_reason: error'), false); // the case that stopped a real session
   const text = midStreamError('Provider finish_reason: error', 'north-mini-code · openrouter');
   assert.ok(engineRetries(text), text);
   assert.match(text, /north-mini-code/);
 });
 
 test('broke off mid-answer: limit words do not block the retry', () => {
-  const text = midStreamError('quota exceeded for this model, check billing', 'x');
-  assert.ok(engineRetries(text), text);
+  for (const cause of [
+    'quota exceeded for this model, check billing',
+    'insufficient_quota: out of budget',
+    'subscription_sharing_usage_limit_exceeded',
+    '{"code": 1308, "message": "usage limit"}',
+  ]) {
+    const text = midStreamError(cause, 'x');
+    assert.ok(engineRetries(text), text);
+  }
 });
 
 test('order: ranked picks, then models new from the catalogue, then models known to be down', () => {

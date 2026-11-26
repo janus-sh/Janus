@@ -9,6 +9,7 @@
 
 ### Changed
 
+- The engine is now pi 1.6.1 (was 0.87.1). This clears the 12 security alerts in the engine's dependencies (undici, minimatch, brace-expansion). Settings, keys and sessions from 0.3.1 keep working. The engine now starts fullscreen by default; Janus keeps your terminal's normal scrollback, as before (`"tuiMode": "fullscreen"` in `~/.janus/agent/settings.json` switches it).
 - The model list now comes from this repository (`lib/free-models.json` on the main branch) instead of a separate site. Every change to the list is a commit you can read. `JANUS_MODELS_URL` still points Janus at another copy.
 
 ### Fixed
