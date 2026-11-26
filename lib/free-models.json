@@ -64,11 +64,6 @@
     },
     {
       "provider": "openrouter",
-      "id": "recursive/flint-v1.0:free",
-      "ping": "ok"
-    },
-    {
-      "provider": "openrouter",
       "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
       "ping": "ok"
     },
@@ -85,6 +80,11 @@
     {
       "provider": "openrouter",
       "id": "liquid/lfm-3-1.7b:free",
+      "ping": "ok"
+    },
+    {
+      "provider": "openrouter",
+      "id": "recursive/flint-v1.0:free",
       "ping": "ok"
     }
   ]
