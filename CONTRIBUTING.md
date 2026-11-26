@@ -29,6 +29,7 @@ JANUS_HOME=$(mktemp -d) node bin/janus.mjs setup
 | `lib/free-models.json` | the ranked list of free models shipped with the package |
 | `lib/list.mjs` | loads that list or the cached copy, and downloads a fresh one in the background |
 | `lib/route.mjs` | which model gets the next request, and when a model rests |
+| `lib/free.mjs` | the lines of `/free`: state, why a model rests, when it is back |
 | `lib/catalogue.mjs` | OpenRouter's own catalogue: drops models that stopped being free, adds new free ones |
 | `lib/doctor.mjs` | `janus doctor`: what Janus would use right now, without secrets |
 | `lib/store.mjs` | writes cache files so that a reader never sees half of one |
