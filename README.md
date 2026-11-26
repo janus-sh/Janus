@@ -1,11 +1,12 @@
 # Janus
 
+[![npm](https://img.shields.io/npm/v/%40janus-sh/janus?logo=npm&label=npm&color=ff6a00&labelColor=222222)](https://www.npmjs.com/package/@janus-sh/janus)
 [![license](https://img.shields.io/badge/license-MIT-ffb300?labelColor=222222)](LICENSE)
 
 **A free coding agent in your terminal.** It reads your code, edits files and runs commands, like the paid ones. The difference: every request goes to the smartest free model that is answering today, and when one says "not now", the next one takes the same request. You pay nothing.
 
 ```sh
-npm install -g github:janus-sh/janus
+npm install -g @janus-sh/janus
 janus
 ```
 
