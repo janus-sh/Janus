@@ -1,5 +1,5 @@
 /**
- * ANUS inside the engine: the model `anus/free`.
+ * Janus inside the engine: the model `janus/free`.
  *
  * Every request goes to the best free model that is awake and has a key.
  * If that model refuses before it says anything (rate limit, daily cap, a
@@ -28,20 +28,21 @@ import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
 
-const ROOT = process.env.ANUS_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
-const AGENT_DIR = process.env.ANUS_CODING_AGENT_DIR ?? join(homedir(), '.anus', 'agent');
-const LIST_URL = process.env.ANUS_MODELS_URL ?? 'https://anus.dev/free-models.json';
+const ROOT = process.env.JANUS_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..');
+const AGENT_DIR = process.env.JANUS_CODING_AGENT_DIR ?? join(homedir(), '.janus', 'agent');
+// The list host stays where it was before the rename.
+const LIST_URL = process.env.JANUS_MODELS_URL ?? process.env.ANUS_MODELS_URL ?? 'https://anus.dev/free-models.json';
 const LIST_CACHE = join(AGENT_DIR, 'free-models.json');
 const LIST_MAX_AGE_MS = 12 * 3_600_000;
-const REST_FILE = join(AGENT_DIR, 'anus-rest.json');
+const REST_FILE = join(AGENT_DIR, 'janus-rest.json');
 const MAX_TRIES = 6;
 const ZERO_COST = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
 
-/** ANUS_DEBUG=1: every routing decision goes to <agent dir>/anus-debug.log. */
+/** JANUS_DEBUG=1: every routing decision goes to <agent dir>/janus-debug.log. */
 function debug(...parts) {
-  if (!process.env.ANUS_DEBUG) return;
+  if (!(process.env.JANUS_DEBUG ?? process.env.ANUS_DEBUG)) return;
   try {
-    appendFileSync(join(AGENT_DIR, 'anus-debug.log'), `${new Date().toISOString()} ${parts.join(' ')}\n`);
+    appendFileSync(join(AGENT_DIR, 'janus-debug.log'), `${new Date().toISOString()} ${parts.join(' ')}\n`);
   } catch {}
 }
 
@@ -54,7 +55,7 @@ function readList(path) {
   }
 }
 
-/** The bundled list or the one fetched from anus.dev, whichever is newer. */
+/** The bundled list or the one fetched from the list host, whichever is newer. */
 function loadList() {
   const bundled = readList(join(ROOT, 'lib', 'free-models.json'));
   const cached = readList(LIST_CACHE);
@@ -108,7 +109,7 @@ const hasImages = (messages) =>
 
 const shortName = (entry) => `${entry.id.replace(/:free$/, '').split('/').pop()} · ${entry.provider}`;
 
-/** The input in a rounded box with "> ", like ANUS CLI 0.1.0. */
+/** The input in a rounded box with "> ", like this project's 2025 CLI (0.1.0). */
 class BoxEditor extends CustomEditor {
   render(width) {
     if (width < 12) return super.render(width);
@@ -125,7 +126,7 @@ class BoxEditor extends CustomEditor {
   }
 }
 
-export default function anus(pi) {
+export default function janus(pi) {
   let list = loadList();
   let registry = null;
   let ui = null;
@@ -152,7 +153,7 @@ export default function anus(pi) {
   const stopWorking = (ctx) => {
     if (working) clearInterval(working.timer);
     working = null;
-    ctx?.ui?.setWidget('anus-working', undefined);
+    ctx?.ui?.setWidget('janus-working', undefined);
   };
 
   pi.on('session_start', async (_event, ctx) => {
@@ -162,8 +163,8 @@ export default function anus(pi) {
       if (fresh) list = fresh;
     });
     if (ctx.mode === 'tui') {
-      useLightPalette(ctx.ui.theme?.name === 'anus-light' || ctx.ui.theme?.name === 'light');
-      // The look of ANUS CLI 0.1.0 (lib/look.mjs). The engine crashes on a
+      useLightPalette(ctx.ui.theme?.name === 'janus-light' || ctx.ui.theme?.name === 'light');
+      // The look of this project's 2025 CLI (0.1.0, lib/look.mjs). The engine crashes on a
       // line wider than the terminal, so every line is cut to the width.
       ctx.ui.setHeader(() => ({ render: (width) => cut(headerLines(width), width), invalidate() {} }));
       ctx.ui.setEditorComponent((t, theme, keybindings) => {
@@ -185,7 +186,7 @@ export default function anus(pi) {
       });
     }
     const keys = PROVIDERS.filter((p) => registry.getProviderAuthStatus(p.id)?.configured);
-    if (!keys.length && ui) ui.notify('ANUS has no free keys yet. Quit (Ctrl+C twice) and run: anus setup', 'warning');
+    if (!keys.length && ui) ui.notify('Janus has no free keys yet. Quit (Ctrl+C twice) and run: janus setup', 'warning');
   });
 
   pi.on('agent_start', async (_event, ctx) => {
@@ -203,7 +204,7 @@ export default function anus(pi) {
         tui?.requestRender();
       }, 1000),
     };
-    ctx.ui.setWidget('anus-working', () => ({
+    ctx.ui.setWidget('janus-working', () => ({
       render: (width) => cut([workingLine(phrase, Math.floor((Date.now() - start) / 1000), width)], width),
       invalidate() {},
     }));
@@ -220,21 +221,21 @@ export default function anus(pi) {
   );
 
   pi.registerCommand('help', {
-    description: 'How to use ANUS',
+    description: 'How to use Janus',
     handler: async (_args, ctx) => {
       ctx.ui.notify(
         [
-          'Type a task in plain words: ANUS reads files, edits them and runs commands.',
+          'Type a task in plain words: Janus reads files, edits them and runs commands.',
           '',
           '/free      which free models are awake, resting or missing a key',
-          '/model     pick a model by hand (anus/free is the automatic one)',
+          '/model     pick a model by hand (janus/free is the automatic one)',
           '/compact   shrink a long conversation',
-          '/resume    open an earlier session (anus -c continues the last one)',
+          '/resume    open an earlier session (janus -c continues the last one)',
           '/hotkeys   keyboard shortcuts',
           '!ls        run a shell command',
           'esc        stop the current answer; ctrl+c twice to quit',
           '',
-          'Keys: anus setup · settings and sessions: ~/.anus/agent · https://anus.dev',
+          'Keys: janus setup · settings and sessions: ~/.janus/agent · https://github.com/janus-sh/janus',
         ].join('\n'),
         'info',
       );
@@ -242,7 +243,7 @@ export default function anus(pi) {
   });
 
   pi.registerCommand('free', {
-    description: 'Show the free models ANUS routes between',
+    description: 'Show the free models Janus routes between',
     handler: async (_args, ctx) => {
       const now = Date.now();
       const lines = (list?.models ?? []).map((entry) => {
@@ -264,9 +265,14 @@ export default function anus(pi) {
 
   // OpenRouter credits requests to the app named in these headers (its public
   // app rankings), and some free models only serve named coding agents.
-  // The category puts ANUS into OpenRouter's cli-agent ranking.
+  // The category puts Janus into OpenRouter's cli-agent ranking.
   pi.registerProvider('openrouter', {
-    headers: { 'HTTP-Referer': 'https://anus.dev', 'X-Title': 'ANUS', 'X-OpenRouter-Title': 'ANUS', 'X-OpenRouter-Categories': 'cli-agent' },
+    headers: {
+      'HTTP-Referer': 'https://github.com/janus-sh/janus',
+      'X-Title': 'Janus',
+      'X-OpenRouter-Title': 'Janus',
+      'X-OpenRouter-Categories': 'cli-agent',
+    },
   });
 
   // Credit in commits (lib/coauthor.mjs): the trailer goes into every
@@ -279,15 +285,15 @@ export default function anus(pi) {
     return undefined;
   });
 
-  pi.registerProvider('anus', {
-    name: 'ANUS',
-    baseUrl: 'https://anus.dev', // required by the engine; requests never go here
-    api: 'anus-router',
+  pi.registerProvider('janus', {
+    name: 'Janus',
+    baseUrl: 'https://github.com/janus-sh/janus', // required by the engine; requests never go here
+    api: 'janus-router',
     apiKey: 'free',
     models: [
       {
         id: 'free',
-        name: 'ANUS free (auto)',
+        name: 'Janus free (auto)',
         reasoning: true,
         input: ['text', 'image'],
         cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
@@ -310,7 +316,7 @@ export default function anus(pi) {
     }).slice(0, MAX_TRIES);
     debug('plan', tries.map(({ entry }) => keyOf(entry)).join(' '));
 
-    // The engine's own key, headers and output cap belong to `anus/free`;
+    // The engine's own key, headers and output cap belong to `janus/free`;
     // each real model gets its own.
     const { apiKey: _k, headers: _h, env: _e, maxTokens: _m, deferred: _d, ...passOn } = options;
 
@@ -390,15 +396,15 @@ export default function anus(pi) {
 
   function failure(lastError, tried) {
     const text = !tried
-      ? 'ANUS has no free model to use: no keys yet, or the conversation is too long for every free model. Run `anus setup` to add keys, or /compact.'
+      ? 'Janus has no free model to use: no keys yet, or the conversation is too long for every free model. Run `janus setup` to add keys, or /compact.'
       : restFor(lastError, Date.now()).scope === 'provider'
-        ? `A free key was refused (${String(lastError).slice(0, 120)}). Run \`anus setup\` to paste it again.`
+        ? `A free key was refused (${String(lastError).slice(0, 120)}). Run \`janus setup\` to paste it again.`
         : `All ${tried} free models refused this request. Last answer: ${lastError}`;
     return {
       role: 'assistant',
       content: [],
-      api: 'anus-router',
-      provider: 'anus',
+      api: 'janus-router',
+      provider: 'janus',
       model: 'free',
       usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { ...ZERO_COST } },
       stopReason: 'error',
