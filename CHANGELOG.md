@@ -2,6 +2,10 @@
 
 ## [0.3.2] - unreleased
 
+### New Features
+
+- `janus doctor` shows what Janus would use right now: version and system, the settings folder, which services have a key (names only) and whether they answer, the model list in use, the OpenRouter catalogue, and the next three models. It never prints a key and never calls a model. Exit code 1 when no model can take a request.
+
 ### Fixed
 
 - New free models found in OpenRouter's catalogue no longer jump ahead of ranked ones. Ranked models that answered the last ping go first, then the new ones, and models known to be down go last. If the catalogue would drop more than three quarters of the OpenRouter models at once, Janus treats it as a broken catalogue, keeps the list and says so in `/free`.
