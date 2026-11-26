@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.1] - 2026-11-26
+
+### New Features
+
+- Janus now checks OpenRouter's own list at start: models that stopped being free are skipped right away, and new free models are picked up the same day, before our ranked list catches up. `/free` marks them `new` and names the ones it skipped. Needs an OpenRouter key; offline, the last copy of the list is used.
+
+### Changed
+
+- The free model list is refreshed for late November: eight OpenRouter models that are no longer free are gone, and six new free models that can use tools are in, the strongest for coding first.
+- Mistral is no longer offered as a free key: its API now needs billing. A key saved earlier stays where it is and is not used.
+
+### Fixed
+
+- The model list download no longer leaves a `free-models.json.tmp` file behind when saving it fails.
+
 ## [0.3.0] - 2026-11-26
 
 ### Changed
