@@ -1,6 +1,6 @@
 {
   "name": "@janus-sh/janus",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Janus: a free coding agent in your terminal. Every request goes to the smartest free model that is answering today.",
   "type": "module",
   "bin": {
