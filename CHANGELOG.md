@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - unreleased
+
+### Fixed
+
+- The model list download no longer loses to a slow connection. It used to give up after 3 seconds, so on a slow line Janus stayed on the list shipped with the package. Now it gets 10 seconds in the background; start-up does not wait for it, and the fresh list is used from the next request.
+
 ## [0.3.1] - 2026-11-26
 
 ### New Features

@@ -10,7 +10,7 @@
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,7 +26,7 @@ import {
 } from '../lib/look.mjs';
 import { PROVIDERS, PROVIDER_IDS } from '../lib/providers.mjs';
 import { catalogueModel, getCatalogue, healList } from '../lib/catalogue.mjs';
-import { saveText } from '../lib/store.mjs';
+import { downloadList, isNewer, LIST_MAX_AGE_MS, loadList } from '../lib/list.mjs';
 import { coauthorEnabled, withTrailer } from '../lib/coauthor.mjs';
 import { estimateTokens, keyOf, midStreamError, plan, restFor } from '../lib/route.mjs';
 
@@ -35,7 +35,7 @@ const AGENT_DIR = process.env.JANUS_CODING_AGENT_DIR ?? join(homedir(), '.janus'
 // The list host stays where it was before the rename.
 const LIST_URL = process.env.JANUS_MODELS_URL ?? process.env.ANUS_MODELS_URL ?? 'https://anus.dev/free-models.json';
 const LIST_CACHE = join(AGENT_DIR, 'free-models.json');
-const LIST_MAX_AGE_MS = 12 * 3_600_000;
+const LIST_PATHS = { bundledPath: join(ROOT, 'lib', 'free-models.json'), cachePath: LIST_CACHE };
 const REST_FILE = join(AGENT_DIR, 'janus-rest.json');
 const CATALOGUE_CACHE = join(AGENT_DIR, 'openrouter-models.json');
 const MAX_TRIES = 6;
@@ -47,46 +47,6 @@ function debug(...parts) {
   try {
     appendFileSync(join(AGENT_DIR, 'janus-debug.log'), `${new Date().toISOString()} ${parts.join(' ')}\n`);
   } catch {}
-}
-
-function parseList(text) {
-  try {
-    const list = JSON.parse(text);
-    return Array.isArray(list?.models) && list.models.every((m) => m?.provider && m?.id) ? list : null;
-  } catch {
-    return null;
-  }
-}
-
-function readList(path) {
-  try {
-    return parseList(readFileSync(path, 'utf8'));
-  } catch {
-    return null;
-  }
-}
-
-/** The bundled list or the one fetched from the list host, whichever is newer. */
-function loadList() {
-  const bundled = readList(join(ROOT, 'lib', 'free-models.json'));
-  const cached = readList(LIST_CACHE);
-  if (!cached) return bundled;
-  if (!bundled) return cached;
-  return String(cached.updated) >= String(bundled.updated) ? cached : bundled;
-}
-
-async function refreshList() {
-  try {
-    if (existsSync(LIST_CACHE) && Date.now() - statSync(LIST_CACHE).mtimeMs < LIST_MAX_AGE_MS) return null;
-    const res = await fetch(LIST_URL, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return null;
-    const text = await res.text();
-    if (!parseList(text)) return null; // checked before it touches the disk
-    saveText(LIST_CACHE, text); // no free-models.json.tmp left behind, even when the write fails
-    return loadList();
-  } catch {
-    return null;
-  }
 }
 
 /** Long rests (daily caps, gated models) survive a restart; short ones do not matter. */
@@ -132,7 +92,8 @@ class BoxEditor extends CustomEditor {
 }
 
 export default function janus(pi) {
-  let base = loadList(); // the ranked list as downloaded or bundled
+  let base = loadList(LIST_PATHS).list; // the ranked list as cached or bundled, at once
+  const ending = new AbortController(); // a download still running when the session ends is dropped
   let catalogue = null; // OpenRouter's own catalogue, when there is one
   let healed = { dropped: [], added: [] };
   let list = base; // the ranked list checked against the catalogue
@@ -184,9 +145,11 @@ export default function janus(pi) {
   pi.on('session_start', async (_event, ctx) => {
     registry = ctx.modelRegistry;
     ui = ctx.hasUI ? ctx.ui : null;
-    refreshList().then((fresh) => {
-      if (!fresh) return;
-      base = fresh;
+    // The fresh list applies to the next request once it arrives.
+    downloadList({ url: LIST_URL, cachePath: LIST_CACHE, signal: ending.signal }).then((fresh) => {
+      debug('list', fresh ? `downloaded ${fresh.list.updated}` : 'not downloaded, using the one at hand');
+      if (!fresh || !isNewer(fresh.list, base)) return;
+      base = fresh.list;
       heal();
     });
     // OpenRouter's own catalogue: in the background, so start-up never waits;
@@ -245,7 +208,10 @@ export default function janus(pi) {
     }));
   });
   pi.on('agent_settled', async (_event, ctx) => stopWorking(ctx));
-  pi.on('session_shutdown', async (_event, ctx) => stopWorking(ctx));
+  pi.on('session_shutdown', async (_event, ctx) => {
+    stopWorking(ctx);
+    ending.abort(); // `janus -p` must not wait for a slow download before it exits
+  });
 
   pi.registerMarkdownTransformer((markdown, context) =>
     context.messageType === 'assistant'
